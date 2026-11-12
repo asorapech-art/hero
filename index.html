@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ระบบติดตามงานฮีโร่</title>
+<meta name="description" content="ติดตามภารกิจ คะแนน การมาเรียน และดาวของห้องเรียน">
+<meta name="theme-color" content="#dc2626">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="ฮีโร่">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<script src="config.js"></script>
+<style>
+  :root { --red:#dc2626; --amber:#f59e0b; --ink:#1f2937; --muted:#6b7280; --bg:#fff7ed; --card:#ffffff; }
+  * { box-sizing: border-box; }
+  body { margin:0; min-height:100vh; font-family: system-ui, -apple-system, "Segoe UI", Tahoma, sans-serif; color:var(--ink);
+         background: radial-gradient(circle at 20% 0%, #fee2e2, transparent 50%), radial-gradient(circle at 100% 100%, #fef3c7, transparent 50%), var(--bg);
+         display:flex; align-items:center; justify-content:center; padding:24px 16px; }
+  .wrap { width:100%; max-width:420px; text-align:center; }
+  .logo { width:112px; height:112px; border-radius:26px; box-shadow:0 12px 30px rgba(220,38,38,.25); }
+  h1 { font-size:1.6rem; margin:18px 0 4px; }
+  .sub { color:var(--muted); margin:0 0 22px; }
+  .btn { display:block; width:100%; border:0; border-radius:14px; padding:15px; font-size:1.1rem; font-weight:700; cursor:pointer; text-decoration:none; }
+  .primary { background:linear-gradient(135deg, var(--red), #f97316); color:#fff; box-shadow:0 8px 20px rgba(220,38,38,.3); }
+  .ghost { background:#fff; color:var(--red); border:2px solid #fecaca; margin-top:10px; }
+  .card { background:var(--card); border-radius:18px; padding:18px; margin-top:20px; text-align:left; box-shadow:0 4px 16px rgba(0,0,0,.06); }
+  .card h2 { font-size:1rem; margin:0 0 10px; }
+  ol { margin:0; padding-left:1.3em; line-height:1.8; }
+  .hide { display:none; }
+  .spin { width:34px; height:34px; border:4px solid #fde68a; border-top-color:var(--red); border-radius:50%; margin:18px auto 0; animation:s 0.8s linear infinite; }
+  @keyframes s { to { transform:rotate(360deg); } }
+  .note { color:var(--muted); font-size:.85rem; margin-top:14px; }
+  .err { background:#fef2f2; color:#991b1b; border-radius:12px; padding:12px; margin-top:16px; text-align:left; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <img class="logo" src="icon-512.png" alt="">
+  <h1 id="title">ระบบติดตามงานฮีโร่</h1>
+  <p class="sub">ภารกิจ · คะแนน · การมาเรียน · ดาว</p>
+
+  <!-- เปิดจากไอคอนบนหน้าจอ: พาเข้าแอปทันที -->
+  <div id="launching" class="hide"><div class="spin"></div><p class="note">กำลังเปิดแอป...</p></div>
+
+  <!-- เปิดจากเบราว์เซอร์: สอนเพิ่มไอคอน -->
+  <div id="browser" class="hide">
+    <a id="open" class="btn primary" href="#">เปิดแอป</a>
+    <button id="install" class="btn ghost hide" type="button">ติดตั้งไอคอนลงหน้าจอ</button>
+    <div class="card" id="howto-android">
+      <h2>เพิ่มไอคอนลงหน้าจอ (Android · Chrome)</h2>
+      <ol><li>กดปุ่ม <b>⋮</b> มุมขวาบนของ Chrome</li><li>เลือก <b>เพิ่มลงในหน้าจอหลัก</b> หรือ <b>ติดตั้งแอป</b></li><li>กด <b>เพิ่ม/ติดตั้ง</b> แล้วเปิดจากไอคอนได้เลย</li></ol>
+    </div>
+    <div class="card" id="howto-ios">
+      <h2>เพิ่มไอคอนลงหน้าจอ (iPhone/iPad · Safari)</h2>
+      <ol><li>กดปุ่ม <b>แชร์</b> (สี่เหลี่ยมมีลูกศรชี้ขึ้น)</li><li>เลื่อนลง เลือก <b>เพิ่มไปยังหน้าจอโฮม</b></li><li>กด <b>เพิ่ม</b> มุมขวาบน</li></ol>
+    </div>
+    <p class="note">ครั้งแรกที่เปิดจากไอคอน อาจต้องเข้าสู่ระบบด้วยบัญชีโรงเรียนอีกครั้ง</p>
+  </div>
+  <div id="error" class="err hide"></div>
+</div>
+<script>
+(function () {
+  var cfg = window.HERO_CONFIG || {};
+  var url = String(cfg.appUrl || '').trim();
+  var $ = function (id) { return document.getElementById(id); };
+  if (cfg.title) { $('title').textContent = cfg.title; document.title = cfg.title; }
+  if (!/^https:\/\/script\.google\.com\/.+\/exec(\?.*)?$/.test(url)) {
+    $('error').classList.remove('hide');
+    $('error').textContent = 'ยังไม่ได้ตั้งลิงก์แอป: แก้ไฟล์ config.js ให้ appUrl เป็นลิงก์ที่ลงท้ายด้วย /exec';
+    return;
+  }
+  var standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  var ios = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js').catch(function () {}); }
+  if (standalone) {
+    $('launching').classList.remove('hide');
+    setTimeout(function () { location.replace(url); }, 300);
+    return;
+  }
+  $('browser').classList.remove('hide');
+  $('open').href = url;
+  $(ios ? 'howto-android' : 'howto-ios').classList.add('hide');
+  var deferred = null;
+  window.addEventListener('beforeinstallprompt', function (e) {
+    e.preventDefault(); deferred = e; $('install').classList.remove('hide');
+  });
+  $('install').addEventListener('click', function () {
+    if (!deferred) return;
+    deferred.prompt();
+    deferred.userChoice.finally(function () { deferred = null; $('install').classList.add('hide'); });
+  });
+})();
+</script>
+</body>
+</html>
