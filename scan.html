@@ -64,8 +64,11 @@ const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&am
         g += `<rect x="${BAR.x}" y="${BAR.y}" width="${BAR.w}" height="${BAR.h}" fill="#000"/>`;
         // หัวกระดาษ
         const hx = 22, hw = L.idX0 - 8 - hx;
-        g += t(hx, 27, e.name, 5.2, 'font-weight="700"');
-        if (e.subject) g += t(hx, 33, e.subject, 3.4, 'fill="#444"');
+        const tx = e._logoSrc ? hx + 15 : hx;
+        if (e._part1Title && L.nCols <= 2) g += t(15, L.y0 - 5, e._part1Title, 3.4, 'font-weight="700" fill="#0f766e"');
+        if (e._logoSrc) g += `<image href="${e._logoSrc}" x="${hx}" y="19" width="13" height="13" preserveAspectRatio="xMidYMid meet"/>`;
+        g += t(tx, 27, e.name, 5.2, 'font-weight="700"');
+        if (e.subject) g += t(tx, 33, e.subject, 3.4, 'fill="#444"');
         const line = (y, label, val) => {
           g += t(hx, y, label, 3.3, 'fill="#333"');
           g += `<line x1="${hx + 17}" y1="${y + 0.8}" x2="${hx + hw}" y2="${y + 0.8}" stroke="#999" stroke-width="0.25"/>`;
@@ -220,6 +223,18 @@ const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&am
         const top = comps.slice(0, 14);
         let best = null, bestScore = 0;
         const area = (pts) => { let s = 0; for (let i = 0; i < 4; i++) { const a = pts[i], b = pts[(i + 1) % 4]; s += a.x * b.y - b.x * a.y; } return Math.abs(s) / 2; };
+        // อยู่ในกรอบหรือบนขอบ (เผื่อ tol พิกเซล) และไม่ใช่จุดมุมเอง
+        const insideQuad = (q, p, tol) => {
+          let sa = 0; for (let i = 0; i < 4; i++) { const a = q[i], b = q[(i + 1) % 4]; sa += a.x * b.y - b.x * a.y; }
+          const sg = sa > 0 ? 1 : -1;
+          for (let i = 0; i < 4; i++) {
+            const a = q[i], b = q[(i + 1) % 4], len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+            if (sg * ((b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x)) / len < -tol) return false;
+            if (Math.hypot(p.x - a.x, p.y - a.y) < tol * 3) return false;
+          }
+          return true;
+        };
+        const squareish = (q) => { for (let i = 0; i < 4; i++) { const a = q[(i + 3) % 4], b = q[i], c = q[(i + 1) % 4]; const ux = a.x - b.x, uy = a.y - b.y, vx = c.x - b.x, vy = c.y - b.y; const cs = (ux * vx + uy * vy) / ((Math.hypot(ux, uy) * Math.hypot(vx, vy)) || 1); if (Math.abs(cs) > 0.45) return false; } return true; };
         const order = (pts) => { const cx = pts.reduce((a, p) => a + p.x, 0) / 4, cy = pts.reduce((a, p) => a + p.y, 0) / 4; return pts.slice().sort((a, b) => Math.atan2(a.y - cy, a.x - cx) - Math.atan2(b.y - cy, b.x - cx)); };
         for (let a = 0; a < top.length; a++) for (let b = a + 1; b < top.length; b++) for (let c = b + 1; c < top.length; c++) for (let d = c + 1; d < top.length; d++) {
           const set = [top[a], top[b], top[c], top[d]];
@@ -233,6 +248,10 @@ const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&am
           const expected = Math.sqrt(ar / (180 * 267)) * FID_SIZE;           // ขนาดสี่เหลี่ยมที่ควรเป็นเมื่อเทียบกับระยะมุม
           const sizeOk = Math.min(sz, expected) / Math.max(sz, expected);
           if (sizeOk < 0.5) continue;
+          // กระดาษ A5 สองแผ่นที่ยังไม่ตัด: มุมของอีกแผ่นจะอยู่ข้างในกรอบที่ผิด
+          const meanN = ns.reduce((x, y) => x + y, 0) / 4;
+          if (!squareish(o)) continue;
+          if (top.some(t => set.indexOf(t) < 0 && t.fill > 0.8 && t.n > meanN * 0.6 && t.n < meanN * 1.6 && insideQuad(o, t, sz * 0.6))) continue;
           const score = ar * sizeOk * sizeOk / ratio;
           if (score > bestScore) { bestScore = score; best = o; }
         }
